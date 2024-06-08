@@ -1,3 +1,4 @@
+INSTRUCTIONS from CREATOR:
 1. clone
 2. in the directory togzhan-project execute command: go install counter
 3. and when it's done, execute command: counter
