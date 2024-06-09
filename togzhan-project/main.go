@@ -13,10 +13,6 @@ import (
 	"sync"
 )
 
-// make sure this file is generated or existing in your directory first
-// to be able to upload it to github, file with 10,000 objects was created, for your test regenerate from console new file with 1m objects
-// const filename = "sample_file_10k.json"
-
 const filename = "sample_file_1m.json"
 
 type obj struct {
