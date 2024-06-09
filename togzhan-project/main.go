@@ -11,13 +11,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
-const filename = "sample_file_10k.json"
-
 // make sure this file is generated or existing in your directory first
-// const filename = "sample_file_1m.json"
+// to be able to upload it to github, file with 10,000 objects was created, for your test regenerate from console new file with 1m objects
+// const filename = "sample_file_10k.json"
+
+const filename = "sample_file_1m.json"
 
 type obj struct {
 	A int `json:"a"`
@@ -49,115 +49,79 @@ func generateJsonFile(valMin, valMax, objNum int) error {
 func readArguments() (int, error) {
 	var s, regenerateFile string
 	r := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Fprint(os.Stderr, "How many go routines you want to use? this is mandatory value to provide, between 1 and 1,000,000\n")
-		s, _ = r.ReadString('\n')
-		if s != "" {
-			break
-		}
-	}
-	for {
-		fmt.Fprint(os.Stderr, "Would you like to regenerate json file with numbers? proivde 'y' or 'n' answer. If no new file needed, the existing sample file will be used\n")
-		regenerateFile, _ = r.ReadString('\n')
-		if s != "" {
-			break
-		}
-	}
+	fmt.Fprint(os.Stderr, "How many go routines you want to use? this is mandatory value to provide\n")
+	s, _ = r.ReadString('\n')
+	fmt.Fprint(os.Stderr, "Would you like to regenerate json file with numbers? provide 'y' or 'n' answer. If no new file needed, the existing sample file will be used\n")
+	regenerateFile, _ = r.ReadString('\n')
 	workers, err := strconv.Atoi(strings.TrimSpace(s))
 	if err != nil {
 		return workers, err
 	}
+	//if user wants to have new file, file generator function is called with hardcoded 1,000,000 number of objects
 	if strings.TrimSpace(regenerateFile) == "y" {
-		err = generateJsonFile(-10, 10, 10000)
+		err = generateJsonFile(-10, 10, 1000000)
 		if err != nil {
 			return workers, err
 		}
-		log.Print("you asked to generate the file, so you need to wait a bit after generation...like 30s of sleep:)")
-		time.Sleep(30 * time.Second)
 	}
 	return workers, nil
 }
 
 func main() {
-	// this is code without any complications with go routines, uncomment it and see the result
-	// or just set num of go routines to 1...
-	// start := time.Now()
-	// plan, _ := os.ReadFile(filename)
-	// var data []obj
-	// err := json.Unmarshal(plan, &data)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// var sum int
-	// for _, element := range data {
-	// 	sum += element.A + element.B
-	// }
-	// fmt.Println("\nThe sum is ", sum)
-	// timeElapsed := time.Since(start)
-	// fmt.Printf("The `for` loop took %s", timeElapsed)
-
+	// reading arguments from console
 	workers, err := readArguments()
 	if err != nil {
 		log.Fatal(err)
 	}
-	start := time.Now()
-
-	dataFile, err := os.ReadFile(filename)
+	// reading bytes from the given file
+	dataFileBytes, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
 	var data []obj
-	err = json.Unmarshal(dataFile, &data)
+	// unmarshaling bytes from file to the slice of objects of type obj
+	err = json.Unmarshal(dataFileBytes, &data)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if workers > len(data) {
-		workers = len(data)
-	}
+	// getting number of process rounds for each goroutine/ worker, so that objects are taken in slices of length=processRounds
 	processRounds := int(math.Ceil(float64(len(data)) / float64(workers)))
-
-	var eachRoundWgs = make([]sync.WaitGroup, processRounds)
-	for i := range processRounds {
-		eachRoundWgs[i].Add(workers)
-	}
-
+	// introducing wait groups with the counter = number of goroutines/workers, so that we wait for ALL routines to be finished
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	var boundary1, boundary2, finalResSum int
-	for i := range workers {
+	var finalResSum int
+	var mu sync.Mutex
+	for i := 0; i < workers; i++ {
 		go func(j int) {
+			// decrease wait group counter when and only when goroutine finished its job
 			defer wg.Done()
-			boundary1 = j * processRounds
-			boundary2 = j*processRounds + processRounds
-			if j == workers-1 {
+			// creating limits for each worker, according to which we get slice from data,
+			// e.g. if num of goroutines=10000, first worker will get data[0:100], second - data [100:200], etc.
+			boundary1 := j * processRounds
+			boundary2 := j*processRounds + processRounds
+			// boundaries might get > than length of data, therefore introducing 2 if statements to avoid panic
+			if boundary2 > len(data) {
 				boundary2 = len(data)
 			}
 			if boundary1 > len(data) {
 				boundary1 = len(data)
 			}
-			finalResSum += work(processRounds, eachRoundWgs, data[boundary1:boundary2])
+			// finally each goroutine is counting sum of its data slice
+			sum := countSum(data[boundary1:boundary2])
+			// using mutex lock/unlock functions to be sure that only one goroutine can access finalResSum variable at a time
+			mu.Lock()
+			finalResSum += sum
+			mu.Unlock()
 		}(i)
-
 	}
 	wg.Wait()
-	fmt.Println("\nThe sum is ", finalResSum)
-	timeElapsed := time.Since(start)
-	fmt.Printf("\nsthe time taken is %s", timeElapsed)
+	fmt.Println("\nThe final sum is ", finalResSum)
 }
 
-func work(processRounds int, eachRoundWgs []sync.WaitGroup, objects []obj) int {
-	var overallSum int
-	for r := range processRounds {
-		var sum int
-		difference := r - len(objects)
-		if len(objects) > 0 && difference < 0 {
-			sum = objects[r].A + objects[r].B
-		} else if len(objects) <= 0 || difference >= 0 {
-			sum = 0
-		}
-		overallSum += sum
-		eachRoundWgs[r].Done()
-		eachRoundWgs[r].Wait()
+func countSum(objects []obj) int {
+	var sum int
+	for _, object := range objects {
+		sum += object.A + object.B
 	}
-	return overallSum
+	return sum
 }
