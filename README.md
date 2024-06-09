@@ -1,7 +1,7 @@
 ## Instructions about usage / Инструкции использования:
 
 1. clone the given repository/ клонируйте данный репозиторий
-2. go to the directory togzhan-project and start the program by execute command: **go run main.go** / перейдите в папку togzhan-project и запустите программу, выполнив команду: **go run main.go**
+2. go to the directory togzhan-project and start the program by executing the command: **go run main.go** / перейдите в папку togzhan-project и запустите программу, выполнив команду: **go run main.go**
 3. answer question about number of go routines, the program will repeat the question until valid answer is provided / ответьте на вопрос о количестве горутин в консоле, программа будет спрашивать вас вопрос до тех пор, пока вы не дадите валидный ответ (число > 0)
 4. then answer question about regeneration of file, write either _y_ or _n_, the answer is case insensitive / после этого ответьте на вопрос о пересоздании файла, напишите _y (если да)_ или _n (если нет)_, ответ может быть, как и с заглавной, так и с маленькой буквы
    * if you did not want to regenerate file, expect that pregenerated _sample_file_1m.json_ with **1,000,000** objects will be used / если вы не захотели пересоздавать файл, ожидайте, что программа будет использовать файл уже созданный _sample_file_1m.json_ с **1,000,000** объектами
