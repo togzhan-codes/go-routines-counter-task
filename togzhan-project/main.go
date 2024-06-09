@@ -113,7 +113,7 @@ func main() {
 	processRounds := int(math.Ceil(float64(len(data)) / float64(workers)))
 	// initializing wait group var to be used to wait for each goroutine to be finished indeed
 	var wg sync.WaitGroup
-	// creating channel for saving result of each goroutine task parallely with the buffer=number of goroutines
+	// creating channel for saving result of each goroutine task parallelly with the buffer=number of goroutines
 	results := make(chan int, workers)
 	for i := 0; i < workers; i++ {
 		// increasing waitGroup counter for each and every routine
